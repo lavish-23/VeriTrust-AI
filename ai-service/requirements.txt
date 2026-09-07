@@ -6,6 +6,7 @@ requests
 numpy
 pillow
 opencv-python-headless
+onnxruntime
 
 pypdf
 openpyxl

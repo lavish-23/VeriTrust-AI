@@ -23,6 +23,7 @@ export type ScanRecord = {
   verdict: Verdict
   date: string
   threat: string
+  caseId?: string
 }
 
 export const scanHistory: ScanRecord[] = [

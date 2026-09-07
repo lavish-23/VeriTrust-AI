@@ -1,45 +1,34 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion } from 'motion/react'
 import {
-  ScanLine,
   ArrowRight,
   CheckCircle2,
   History,
   Download,
   Crown,
   UploadCloud,
-  FileText,
-  Eye,
   ShieldCheck,
   Zap,
   Lock,
   Globe,
-  Loader2,
+  Infinity as InfinityIcon,
+  Layers,
+  Video,
+  Sparkles,
+  FileText,
+  Rocket,
+  KeyRound,
+  BadgeCheck,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { UploadBox } from '@/components/upload-box'
-import { MediaIcon, VerdictBadge, scoreColor } from '@/components/app/media-bits'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { mediaLabels } from '@/lib/mock-data'
-import type { ScanRecord } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
-
-const FREE_REMAINING = 2
-const IS_PREMIUM = false
-
-function detectType(file: File): string {
-  const mime = file.type
-  const name = file.name.toLowerCase()
-  if (mime.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/.test(name)) return 'image'
-  if (mime.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|flv)$/.test(name)) return 'video'
-  if (mime.startsWith('audio/') || /\.(mp3|wav|ogg|aac|flac|m4a)$/.test(name)) return 'audio'
-  return 'document'
-}
+import { FREE_SCAN_LIMIT } from '@/lib/plan'
 
 const highlights = [
   { icon: Zap, label: 'Instant AI Analysis', desc: 'Results in seconds across all media types' },
@@ -48,17 +37,27 @@ const highlights = [
   { icon: ShieldCheck, label: 'Trust Score', desc: 'Clear authenticity score you can act on' },
 ]
 
+const premiumFeatures = [
+  { icon: InfinityIcon, label: 'Unlimited Verifications', desc: 'No cap on how many files you scan' },
+  { icon: Layers, label: 'Cross-Modal Detection', desc: 'Correlate signals across image, video, audio & docs' },
+  { icon: Video, label: 'Video & Audio Support', desc: 'Full deepfake & voice-clone analysis, not just images' },
+  { icon: Sparkles, label: 'Detailed AI Explanations', desc: 'See exactly why a file was flagged' },
+  { icon: FileText, label: 'Downloadable PDF Reports', desc: 'Share verifiable, audit-ready reports' },
+  { icon: History, label: 'Scan History (90 Days)', desc: 'Look back further than the free tier' },
+  { icon: Rocket, label: 'Priority Processing', desc: 'Faster queue times on every scan' },
+  { icon: KeyRound, label: 'API Access', desc: 'Integrate VeriTrust checks into your own systems' },
+  { icon: BadgeCheck, label: 'SOC 2 Aligned', desc: 'Enterprise-grade security & compliance posture' },
+]
+
 export default function DashboardPage() {
-  const [firstName, setFirstName] = useState('')
-  const [recentRows, setRecentRows] = useState<ScanRecord[]>([])
-  const [loadingScans, setLoadingScans] = useState(true)
   const router = useRouter()
-  const [file, setFile] = useState<File | null>(null)
+  const [firstName, setFirstName] = useState('')
+  const [isPremium, setIsPremium] = useState(false)
+  const [scanCount, setScanCount] = useState(0)
 
   useEffect(() => {
-    async function loadDashboardData() {
+    async function loadUser() {
       try {
-        // Fetch current user
         const userRes = await fetch('/api/auth/me', {
           credentials: 'include',
           cache: 'no-store',
@@ -66,37 +65,38 @@ export default function DashboardPage() {
         const userData = await userRes.json()
         if (userRes.ok && userData.success) {
           setFirstName(userData.user.firstName)
+          setIsPremium(!!userData.user.isPremium)
         }
       } catch (error) {
         console.error('Failed to load user:', error)
       }
 
       try {
-        // Fetch recent scans from MongoDB
         const scansRes = await fetch('/api/scans/history', {
           credentials: 'include',
           cache: 'no-store',
         })
         if (scansRes.ok) {
           const scansData = await scansRes.json()
-          // Take top 5 recent scans
-          setRecentRows((scansData.scans || []).slice(0, 5))
+          setScanCount((scansData.scans || []).length)
         }
       } catch (error) {
-        console.error('Failed to load recent scans:', error)
-      } finally {
-        setLoadingScans(false)
+        console.error('Failed to load scan count:', error)
       }
     }
 
-    loadDashboardData()
+    loadUser()
   }, [])
 
-  const handleVerify = () => {
-    if (!file) return
-    router.push(
-      `/processing?file=${encodeURIComponent(file.name)}&type=${encodeURIComponent(detectType(file))}`,
-    )
+  const freeRemaining = Math.max(0, FREE_SCAN_LIMIT - scanCount)
+
+  const handleDownloadReports = () => {
+    if (!isPremium) {
+      toast.error('Downloadable reports are a Premium feature.')
+      router.push('/pricing')
+      return
+    }
+    router.push('/history')
   }
 
   return (
@@ -209,7 +209,7 @@ export default function DashboardPage() {
           <Card className="glass-panel">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Crown className={cn('size-4', IS_PREMIUM ? 'text-warning' : 'text-muted-foreground')} />
+                <Crown className={cn('size-4', isPremium ? 'text-warning' : 'text-muted-foreground')} />
                 Current Plan
               </CardTitle>
             </CardHeader>
@@ -217,13 +217,13 @@ export default function DashboardPage() {
               <span
                 className={cn(
                   'inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold',
-                  IS_PREMIUM ? 'bg-warning/15 text-warning' : 'bg-secondary text-muted-foreground',
+                  isPremium ? 'bg-warning/15 text-warning' : 'bg-secondary text-muted-foreground',
                 )}
               >
-                {IS_PREMIUM ? '✦ Premium' : 'Free'}
+                {isPremium ? '✦ Premium' : 'Free'}
               </span>
 
-              {IS_PREMIUM ? (
+              {isPremium ? (
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   {[
                     'Unlimited Verifications',
@@ -242,14 +242,14 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">Remaining free verifications</p>
                     <div className="flex items-end gap-1">
-                      <span className="text-3xl font-bold text-foreground">{FREE_REMAINING}</span>
-                      <span className="mb-1 text-sm text-muted-foreground">/ 3</span>
+                      <span className="text-3xl font-bold text-foreground">{freeRemaining}</span>
+                      <span className="mb-1 text-sm text-muted-foreground">/ {FREE_SCAN_LIMIT}</span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-secondary">
                       <div
                         className="h-full rounded-full bg-primary"
                         style={{
-                          width: `${(FREE_REMAINING / 3) * 100}%`,
+                          width: `${(freeRemaining / FREE_SCAN_LIMIT) * 100}%`,
                           animation: 'progress-fill 1.2s cubic-bezier(0.22,1,0.36,1) 0.4s both',
                         }}
                       />
@@ -294,11 +294,11 @@ export default function DashboardPage() {
                 <ArrowRight className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
               <button
-                onClick={() => window.print()}
+                onClick={handleDownloadReports}
                 className="group flex w-full items-center gap-3 rounded-lg border border-border/60 bg-secondary/40 p-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary/70"
               >
                 <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Download className="size-4" />
+                  {isPremium ? <Download className="size-4" /> : <Lock className="size-4" />}
                 </div>
                 <span className="text-sm font-medium">Download Previous Reports</span>
                 <ArrowRight className="ml-auto size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
@@ -308,114 +308,50 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Upload area */}
+      {/* Premium Features */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, delay: 0.2 }}
-        className="space-y-4"
-      >
-        <UploadBox onFileSelect={setFile} className="min-h-[220px]" />
-        <Button
-          size="lg"
-          className="gradient-brand w-full text-primary-foreground transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/30 active:scale-[0.99]"
-          onClick={handleVerify}
-          disabled={!file}
-        >
-          <ScanLine className="size-4" />
-          Verify Authenticity
-          <ArrowRight className="size-4" />
-        </Button>
-      </motion.div>
-
-      {/* Recent Verifications */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, delay: 0.3 }}
       >
         <Card className="glass-panel">
           <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="text-base">Recent Verifications</CardTitle>
-            <Button variant="ghost" size="sm" render={<Link href="/history" />}>
-              View All History
-              <ArrowRight className="size-3.5" />
-            </Button>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Crown className="size-4 text-warning" />
+              {isPremium ? 'Your Premium Features' : 'Premium Features'}
+            </CardTitle>
+            {!isPremium && (
+              <Button variant="ghost" size="sm" render={<Link href="/pricing" />}>
+                View Plans
+                <ArrowRight className="size-3.5" />
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
-            {loadingScans ? (
-              <div className="flex h-36 items-center justify-center">
-                <Loader2 className="size-7 animate-spin text-muted-foreground" />
-              </div>
-            ) : recentRows.length === 0 ? (
-              <div className="flex flex-col items-center gap-4 py-14 text-center">
-                <div className="flex size-16 items-center justify-center rounded-2xl bg-secondary/60">
-                  <FileText className="size-8 text-muted-foreground" strokeWidth={1.5} />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">No verifications yet</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Upload your first file to check its authenticity.
-                  </p>
-                </div>
-                <Button
-                  className="gradient-brand text-primary-foreground"
-                  render={<Link href="/scan/upload" />}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {premiumFeatures.map(({ icon: Icon, label, desc }) => (
+                <div
+                  key={label}
+                  className="flex items-start gap-3 rounded-xl border border-border/50 bg-secondary/40 p-3.5"
                 >
-                  <UploadCloud className="size-4" />
-                  Upload Your First File
-                </Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>File Name</TableHead>
-                    <TableHead>File Type</TableHead>
-                    <TableHead className="hidden sm:table-cell">Date &amp; Time</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Verdict</TableHead>
-                    <TableHead className="text-right">View Report</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentRows.map((r) => (
-                    <TableRow key={r.id} className="group cursor-pointer">
-                      <TableCell>
-                        <span className="font-medium transition-colors group-hover:text-primary">
-                          {r.name}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                          <MediaIcon type={r.type} />
-                          <span className="hidden lg:inline">{mediaLabels[r.type]}</span>
-                        </span>
-                      </TableCell>
-                      <TableCell className="hidden whitespace-nowrap text-sm text-muted-foreground sm:table-cell">
-                        {r.date}
-                      </TableCell>
-                      <TableCell>
-                        <span className={cn('font-semibold tabular-nums', scoreColor(r.score))}>
-                          {r.score}%
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <VerdictBadge verdict={r.verdict} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Link
-                          href={`/report?id=${r.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                        >
-                          <Eye className="size-3.5" />
-                          View Report
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+                    <Icon className="size-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{label}</p>
+                    <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {!isPremium && (
+              <Button
+                className="gradient-brand mt-5 w-full text-primary-foreground"
+                render={<Link href="/pricing" />}
+              >
+                <Crown className="size-4" />
+                Upgrade to Premium
+              </Button>
             )}
           </CardContent>
         </Card>

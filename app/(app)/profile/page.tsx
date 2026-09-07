@@ -32,6 +32,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { toast } from 'sonner'
 import type { ScanRecord } from '@/lib/mock-data'
+import { FREE_SCAN_LIMIT } from '@/lib/plan'
+import { formatLocalDateTime } from '@/lib/utils'
 
 interface UserProfile {
   id: string
@@ -40,9 +42,9 @@ interface UserProfile {
   email: string
   organization?: string
   provider?: string
-  plan?: string
-  status?: string
+  isPremium?: boolean
   memberSince?: string
+  lastActive?: string
 }
 
 function getMediaIcon(type?: string) {
@@ -95,19 +97,28 @@ export default function ProfilePage() {
         if (userRes.ok && userData.success) {
           const u = {
             id: userData.user.id || userData.user._id,
-            firstName: userData.user.firstName || 'Lavish',
-            lastName: userData.user.lastName || 'Khachane',
-            email: userData.user.email || 'lavish12@gmail.com',
-            organization: userData.user.organization || 'VeriTrust',
-            provider: userData.user.provider || 'Credentials',
-            plan: userData.user.plan || 'Premium Plan',
-            status: userData.user.status || 'Active',
+            firstName: userData.user.firstName,
+            lastName: userData.user.lastName,
+            email: userData.user.email,
+            organization: userData.user.organization,
+            provider: userData.user.provider || 'credentials',
+            isPremium: !!userData.user.isPremium,
             memberSince: userData.user.createdAt
               ? new Date(userData.user.createdAt).toLocaleDateString('en-US', {
                   month: 'short',
+                  day: 'numeric',
                   year: 'numeric',
                 })
-              : 'May 2024',
+              : undefined,
+            lastActive: userData.user.lastLogin
+              ? new Date(userData.user.lastLogin).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })
+              : undefined,
           }
           setUser(u)
           setFormData({
@@ -240,17 +251,16 @@ export default function ProfilePage() {
     )
   }
 
-  const fullName = `${user?.firstName || 'Lavish'} ${user?.lastName || 'Khachane'}`
-  const initials = `${user?.firstName?.[0] || 'L'}${user?.lastName?.[0] || 'K'}`.toUpperCase()
+  const fullName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || '—'
+  const initials =
+    `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || '—'
 
+  const planLabel = user?.isPremium ? 'Premium' : 'Free'
   const totalScansCount = scans.length
-  const scansLimit = 1000
-  const reportsLimit = 100
-  const apiCallsCount = totalScansCount * 3 + 12
-
-  const scansPercentage = Math.min(100, Math.max(1, (totalScansCount / scansLimit) * 100))
-  const reportsPercentage = Math.min(100, Math.max(1, (totalScansCount / reportsLimit) * 100))
-  const apiPercentage = Math.min(100, Math.max(1, (apiCallsCount / 10000) * 100))
+  const scansLimit = user?.isPremium ? null : FREE_SCAN_LIMIT
+  const scansPercentage = scansLimit
+    ? Math.min(100, Math.max(1, (totalScansCount / scansLimit) * 100))
+    : 100
 
   const recentActivities = scans.slice(0, 4)
 
@@ -299,13 +309,22 @@ export default function ProfilePage() {
               <span>•</span>
               <span className="inline-flex items-center gap-1.5 text-foreground">
                 <Crown className="size-3.5 text-warning" />
-                {user?.plan}
+                {planLabel} Plan
               </span>
               <span>•</span>
               <span className="inline-flex items-center gap-1.5">
                 <Calendar className="size-3.5 text-muted-foreground/80" />
-                Member since {user?.memberSince}
+                Member since {user?.memberSince || '—'}
               </span>
+              {user?.lastActive && (
+                <>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="size-3.5 text-muted-foreground/80" />
+                    Last active {user.lastActive}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -318,7 +337,7 @@ export default function ProfilePage() {
             <p className="text-xs font-medium text-muted-foreground">Account Status</p>
             <div className="flex items-center gap-1.5 pt-0.5">
               <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-sm font-semibold text-emerald-400">{user?.status}</span>
+              <span className="text-sm font-semibold text-emerald-400">Active</span>
             </div>
             <p className="mt-0.5 text-[11px] text-muted-foreground">All features working normally</p>
           </div>
@@ -462,7 +481,7 @@ export default function ProfilePage() {
 
           <CardContent className="space-y-5 pt-2">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">{user?.plan}</span>
+              <span className="font-semibold text-foreground">{planLabel} Plan</span>
               <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
                 Active
               </span>
@@ -473,43 +492,13 @@ export default function ProfilePage() {
                 <div className="flex justify-between font-medium">
                   <span className="text-muted-foreground">Scans Used</span>
                   <span className="font-bold text-foreground">
-                    {totalScansCount.toLocaleString()} / {scansLimit.toLocaleString()}
+                    {totalScansCount.toLocaleString()} / {scansLimit ? scansLimit.toLocaleString() : 'Unlimited'}
                   </span>
                 </div>
                 <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary/60">
                   <div
                     className="h-full rounded-full bg-primary transition-all duration-500"
                     style={{ width: `${scansPercentage}%` }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between font-medium">
-                  <span className="text-muted-foreground">Reports Generated</span>
-                  <span className="font-bold text-foreground">
-                    {totalScansCount.toLocaleString()} / {reportsLimit.toLocaleString()}
-                  </span>
-                </div>
-                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary/60">
-                  <div
-                    className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                    style={{ width: `${reportsPercentage}%` }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between font-medium">
-                  <span className="text-muted-foreground">API Requests</span>
-                  <span className="font-bold text-foreground">
-                    {apiCallsCount.toLocaleString()} / 10,000
-                  </span>
-                </div>
-                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary/60">
-                  <div
-                    className="h-full rounded-full bg-indigo-500 transition-all duration-500"
-                    style={{ width: `${apiPercentage}%` }}
                   />
                 </div>
               </div>
@@ -569,7 +558,7 @@ export default function ProfilePage() {
                       />
                       <div className="pr-2">
                         <p className="font-semibold text-foreground transition-colors group-hover:text-primary">
-                          {act.date}
+                          {formatLocalDateTime(act.date)}
                         </p>
                         <p className="max-w-[220px] truncate text-muted-foreground">
                           Scanned: <span className="text-foreground/90">{act.name}</span>

@@ -1,6 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { MongoClient } from 'mongodb'
-import { scanHistory, ScanRecord } from '@/lib/mock-data'
+import { ScanRecord } from '@/lib/mock-data'
+import { verifySession } from '@/lib/auth'
+import { connectDB } from '@/lib/mongodb'
+import User from '@/models/User'
+import { FREE_HISTORY_DAYS, PREMIUM_HISTORY_DAYS } from '@/lib/plan'
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017'
 const DB_NAME = process.env.MONGODB_DB_NAME || 'VeriTrust-AI'
@@ -15,16 +19,37 @@ async function getClient() {
   return cachedClient
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const token = req.cookies.get('veritrust_session')?.value
+    const session = token ? await verifySession(token) : null
+
+    if (!session) {
+      return NextResponse.json({ success: true, scans: [] })
+    }
+
+    await connectDB()
+    const user = await User.findById(session.userId).select('isPremium').lean<{ isPremium?: boolean }>()
+    const isPremium = !!user?.isPremium
+    const historyDays = isPremium ? PREMIUM_HISTORY_DAYS : FREE_HISTORY_DAYS
+    const cutoff = new Date(Date.now() - historyDays * 24 * 60 * 60 * 1000)
+
     const client = await getClient()
     const db = client.db(DB_NAME)
 
     const dbScans = await db
       .collection('scans')
-      .find({}, { projection: { visualArtifacts: 0 } })
+      .find(
+        { userId: session.userId, createdAt: { $gte: cutoff.toISOString() } },
+        { projection: { visualArtifacts: 0 } }
+      )
       .sort({ createdAt: -1, _id: -1 })
       .toArray()
+
+    const caseCounts = new Map<string, number>()
+    for (const s of dbScans) {
+      if (s.caseId) caseCounts.set(s.caseId, (caseCounts.get(s.caseId) || 0) + 1)
+    }
 
     const formattedDbScans: ScanRecord[] = dbScans.map((s) => {
       const id = s.scanId || s.id || String(s._id)
@@ -32,10 +57,12 @@ export async function GET() {
       const rawType = (s.fileType || s.type || 'image').toLowerCase()
       const type = rawType === 'pdf' ? 'document' : rawType
 
+      // Send the raw ISO timestamp (with timezone) so the client can render it
+      // in the viewer's local time instead of a fixed UTC string.
       let date = ''
       if (s.createdAt) {
         try {
-          date = new Date(s.createdAt).toISOString().replace('T', ' ').slice(0, 16)
+          date = new Date(s.createdAt).toISOString()
         } catch {
           date = String(s.createdAt)
         }
@@ -48,20 +75,14 @@ export async function GET() {
         score: typeof s.score === 'number' ? s.score : 80,
         verdict: s.verdict || 'authentic',
         threat: s.threat || 'None Detected',
-        date: date || '2026-09-04 18:35',
+        date,
+        caseId: s.caseId && (caseCounts.get(s.caseId) || 0) >= 2 ? s.caseId : undefined,
       }
     })
 
-    // Avoid duplicate keys if seed scans match DB IDs
-    const existingIds = new Set(formattedDbScans.map((s) => s.id))
-    const uniqueSeeds = scanHistory.filter((s) => !existingIds.has(s.id))
-
-    return NextResponse.json({
-      success: true,
-      scans: [...formattedDbScans, ...uniqueSeeds],
-    })
+    return NextResponse.json({ success: true, scans: formattedDbScans })
   } catch (error) {
-    console.error('Atlas history query failed, serving baseline scanHistory:', error)
-    return NextResponse.json({ success: true, scans: scanHistory })
+    console.error('Scan history query failed:', error)
+    return NextResponse.json({ success: true, scans: [] })
   }
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { CloudUpload, ImageIcon, Video, AudioLines, FileText, File } from 'lucide-react'
+import { CloudUpload, ImageIcon, Video, AudioLines, FileText, File, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const formats = [
@@ -32,9 +32,11 @@ function detectType(file: File): string {
 interface UploadBoxProps {
   onFileSelect: (file: File) => void
   className?: string
+  locked?: boolean
+  onLockedClick?: () => void
 }
 
-export function UploadBox({ onFileSelect, className }: UploadBoxProps) {
+export function UploadBox({ onFileSelect, className, locked, onLockedClick }: UploadBoxProps) {
   const [dragging, setDragging] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [selected, setSelected] = useState<File | null>(null)
@@ -48,11 +50,12 @@ export function UploadBox({ onFileSelect, className }: UploadBoxProps) {
     [onFileSelect],
   )
 
-  const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragging(true) }
+  const onDragOver = (e: React.DragEvent) => { if (!locked) { e.preventDefault(); setDragging(true) } }
   const onDragLeave = () => setDragging(false)
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setDragging(false)
+    if (locked) return
     const file = e.dataTransfer.files?.[0]
     if (file) handleFile(file)
   }
@@ -60,8 +63,43 @@ export function UploadBox({ onFileSelect, className }: UploadBoxProps) {
     const file = e.target.files?.[0]
     if (file) handleFile(file)
   }
+  const handleBoxClick = () => {
+    if (locked) {
+      onLockedClick?.()
+      return
+    }
+    inputRef.current?.click()
+  }
 
-  const active = dragging || hovering
+  const active = !locked && (dragging || hovering)
+
+  if (locked) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleBoxClick}
+        onKeyDown={(e) => e.key === 'Enter' && handleBoxClick()}
+        className={cn(
+          'upload-box relative cursor-pointer select-none rounded-2xl border border-border/60 bg-secondary/20 transition-all duration-300',
+          className,
+        )}
+      >
+        <div className="relative flex flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+          <div className="grid size-20 place-items-center rounded-2xl bg-secondary/60">
+            <Lock className="size-9 text-muted-foreground" strokeWidth={1.5} />
+          </div>
+          <div>
+            <p className="text-lg font-semibold text-foreground">You've used your free verification</p>
+            <p className="mt-1 text-sm text-muted-foreground">Upgrade to Premium for unlimited verifications</p>
+          </div>
+          <span className="rounded-xl bg-gradient-to-r from-primary to-accent px-5 py-2 text-sm font-medium text-primary-foreground">
+            View Premium Plans
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -72,8 +110,8 @@ export function UploadBox({ onFileSelect, className }: UploadBoxProps) {
       onDrop={onDrop}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
-      onClick={() => inputRef.current?.click()}
-      onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+      onClick={handleBoxClick}
+      onKeyDown={(e) => e.key === 'Enter' && handleBoxClick()}
       className={cn('upload-box relative cursor-pointer select-none rounded-2xl transition-all duration-300', className)}
       data-active={active ? 'true' : undefined}
       data-dragging={dragging ? 'true' : undefined}

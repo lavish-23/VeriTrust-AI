@@ -21,7 +21,7 @@ import { PageHeader } from '@/components/app/page-header'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { mediaLabels, verdictLabels } from '@/lib/mock-data'
 import type { MediaType, Verdict, ScanRecord } from '@/lib/mock-data'
-import { cn } from '@/lib/utils'
+import { cn, formatLocalDateTime } from '@/lib/utils'
 
 const mediaOptions: { label: string; value: '' | MediaType; icon: any }[] = [
   { label: 'All Types', value: '', icon: Layers },
@@ -265,6 +265,15 @@ export default function HistoryPage() {
                               {r.name}
                             </p>
                             <p className="text-xs text-muted-foreground">{r.id}</p>
+                            {r.caseId && (
+                              <Link
+                                href={`/report/case?caseId=${r.caseId}`}
+                                className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                              >
+                                <Layers className="size-3" />
+                                Part of a case
+                              </Link>
+                            )}
                           </td>
                           <td className="py-3 pr-4 text-muted-foreground capitalize hidden sm:table-cell">
                             {mediaLabels[r.type]}
@@ -299,7 +308,7 @@ export default function HistoryPage() {
                             </span>
                           </td>
                           <td className="py-3 pr-4 text-xs text-muted-foreground hidden md:table-cell whitespace-nowrap">
-                            {r.date}
+                            {formatLocalDateTime(r.date)}
                           </td>
                           <td className="py-3 text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -314,7 +323,7 @@ export default function HistoryPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => toast.success(`PDF downloaded: ${r.name}`)}
+                                render={<Link href={`/report?id=${r.id}&download=1`} />}
                               >
                                 <Download className="size-3.5" />
                               </Button>

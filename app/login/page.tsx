@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AuthShell } from '@/components/auth/auth-shell'
 import { GoogleButton } from '@/components/auth/google-button'
@@ -159,6 +159,16 @@ export default function LoginPage() {
           Create one
         </Link>
       </p>
+
+      <div className="mt-4 text-center">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-3.5" />
+          Back to home
+        </Link>
+      </div>
     </AuthShell>
   )
 }

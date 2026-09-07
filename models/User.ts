@@ -10,6 +10,9 @@ export interface IUser {
   password?: string
   provider: AuthProvider
   googleId?: string
+  isPremium: boolean
+  premiumSince?: Date
+  lastLogin?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -57,6 +60,19 @@ const UserSchema = new Schema<IUser>(
     googleId: {
       type: String,
       sparse: true,
+    },
+
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
+
+    premiumSince: {
+      type: Date,
+    },
+
+    lastLogin: {
+      type: Date,
     },
   },
   {

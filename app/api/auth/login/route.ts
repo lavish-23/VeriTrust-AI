@@ -53,6 +53,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    user.lastLogin = new Date()
+    await user.save()
+
     const token = await createSession({
       userId: user._id.toString(),
       email: user.email,

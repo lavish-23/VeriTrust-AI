@@ -1,5 +1,9 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { CheckCircle2, Zap } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { CheckCircle2, Loader2, Zap } from 'lucide-react'
 import { SiteNav } from '@/components/landing/site-nav'
 import { SiteFooter } from '@/components/landing/site-footer'
 import { Button } from '@/components/ui/button'
@@ -37,11 +41,29 @@ const premiumPlan = {
     'SOC 2 aligned',
   ],
   cta: 'Get Premium',
-  ctaHref: '/signup',
   highlight: true,
 }
 
 export default function PricingPage() {
+  const router = useRouter()
+  const [checkingAuth, setCheckingAuth] = useState(false)
+
+  async function handleGetPremium() {
+    setCheckingAuth(true)
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' })
+      if (res.ok) {
+        router.push('/payment')
+      } else {
+        router.push('/signup?plan=premium')
+      }
+    } catch {
+      router.push('/signup?plan=premium')
+    } finally {
+      setCheckingAuth(false)
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <SiteNav />
@@ -141,8 +163,10 @@ export default function PricingPage() {
                 <Button
                   size="lg"
                   className="gradient-brand mt-8 w-full text-primary-foreground"
-                  render={<Link href={premiumPlan.ctaHref} />}
+                  onClick={handleGetPremium}
+                  disabled={checkingAuth}
                 >
+                  {checkingAuth && <Loader2 className="size-4 animate-spin" />}
                   {premiumPlan.cta}
                 </Button>
               </div>

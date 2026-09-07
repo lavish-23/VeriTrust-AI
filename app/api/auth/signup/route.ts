@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import User from '@/models/User'
+import { createSession } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,7 +71,12 @@ export async function POST(request: NextRequest) {
       provider: 'credentials',
     })
 
-    return NextResponse.json(
+    const token = await createSession({
+      userId: user._id.toString(),
+      email: user.email,
+    })
+
+    const response = NextResponse.json(
       {
         success: true,
         message: 'Account created successfully',
@@ -84,6 +90,16 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     )
+
+    response.cookies.set('veritrust_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    })
+
+    return response
   } catch (error) {
     console.error('Signup error:', error)
 

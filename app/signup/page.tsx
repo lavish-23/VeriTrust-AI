@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { AuthShell } from '@/components/auth/auth-shell'
@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label'
 
 export default function SignupPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const intendedPlan = searchParams.get('plan')
 
   const [loading, setLoading] = useState(false)
 
@@ -56,7 +58,8 @@ export default function SignupPage() {
 
       toast.success('Account created successfully!')
 
-      router.push('/login')
+      router.push(intendedPlan === 'premium' ? '/payment' : '/dashboard')
+      router.refresh()
     } catch (error) {
       console.error('Signup request failed:', error)
 

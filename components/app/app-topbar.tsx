@@ -36,7 +36,7 @@ type User = {
   organization?: string
   email: string
   provider?: 'credentials' | 'google'
-  plan?: string
+  isPremium?: boolean
 }
 
 export function AppTopbar({ onMenu }: { onMenu?: () => void }) {
@@ -111,30 +111,6 @@ export function AppTopbar({ onMenu }: { onMenu?: () => void }) {
       >
         <Menu className="size-5" />
       </button>
-
-      {/* Nav links */}
-      <nav className="hidden items-center gap-1 md:flex">
-        <Link
-          href="/scan/upload"
-          className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          New Verification
-        </Link>
-
-        <Link
-          href="/history"
-          className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          History
-        </Link>
-
-        <Link
-          href="/pricing"
-          className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          Pricing
-        </Link>
-      </nav>
 
       <div className="ml-auto flex items-center gap-2">
         <Button
@@ -213,7 +189,7 @@ export function AppTopbar({ onMenu }: { onMenu?: () => void }) {
                 </div>
                 <span className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
                   <Crown className="size-3" />
-                  {user?.plan || 'Premium Plan'}
+                  {user?.isPremium ? 'Premium' : 'Free Plan'}
                 </span>
               </div>
             </div>

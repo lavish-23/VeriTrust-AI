@@ -54,6 +54,9 @@ export async function GET(request: NextRequest) {
         organization: user.organization,
         email: user.email,
         provider: user.provider,
+        isPremium: !!user.isPremium,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin,
       },
     })
   } catch (error) {
